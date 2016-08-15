@@ -13,10 +13,13 @@
           ((assertion-p input)
            (add-stmt (assertion-stmt input) env)
            (princ "\nok"))
-          ((setf proof (prove (query-stmt input) env))
+          ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
            (format t "~%Yes.~{~^~%~S~} q.e.d."
-             (mapcar #'output-fact (steps proof))))
-          (T (princ "\nNo.")))) ;perhaps describe why the statement is wrong, or where a contradiction occurred.
+             (mapcar #'output-fact (proof-steps proof))))
+          ((proof-steps proof)
+           (format t "~%No.~{~^~%~S~} which contradicts the query."
+             (mapcar #'output-inference (proof-steps proof))))
+          (T (princ "\nToo few information."))))
   (syllogism-repl env))
   
 ;; returns either an assertion or a query, and NIL for invalid input
@@ -24,8 +27,8 @@
   "Parse a statement inputted to the syllogism solver."
   NIL)
   
-(defun output-fact (fact)
-  "Convert fact into a string to be printed."
+(defun output-inference (inf)
+  "Convert inference into a string to be printed."
   NIL)
 
 (defstruct assertion "Wrapper struct for an assertion command." stmt)
@@ -33,12 +36,12 @@
   
 ;;; Core model
 
+(defstruct proof 
+  "Stores whether the truth is affirmative or negative, and a list of inferences taken at each step of the proof or refutal."
+  affirmative-p steps)
+
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
-  NIL)
-  
-(defun steps (proof)
-  "Return each fact and derivation used in proof."
   NIL)
   
 ;;; Data structures
