@@ -15,10 +15,10 @@
            (princ "\nok"))
           ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
            (format t "~%Yes.~{~^~%~S~} q.e.d."
-             (mapcar #'output-fact (proof-steps proof))))
+             (mapcar #'output-fact (reverse (proof-steps proof)))))
           ((proof-steps proof)
            (format t "~%No.~{~^~%~S~} which contradicts the query."
-             (mapcar #'output-inference (proof-steps proof))))
+             (mapcar #'output-inference (reverse (proof-steps proof)))))
           (T (princ "\nToo few information."))))
   (syllogism-repl env))
   
@@ -42,11 +42,23 @@
 
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
-  NIL)
+  ;; If the statement is a known fact, consider it trivially proven with steps (list stmt).
+  ;; If the statement contradicts another statement, consider it disproven with steps containing the contradictory statement.
+  ;; Otherwise, go through each inference rule that can conclude with (stmt-type stmt).
+  ;; Find a major premise (a premise containing the predicate) that can derive the statement with the type given by the rule.
+  ;; If no such premise exists, jump to the next inference rule.
+  ;; Otherwise, go through each viable premise.
+  ;; Construct the required minor premise from the subject and the middle category and try to prove it.
+  ;; If it is disproven, go to the next premise.
+  ;; If it is proven, return the same proof structure with this inference added to the front of the steps.
+  ;; If no premises are left, jump to the next inference rule.
+  ;; If no inference rules are left, return negative proof with no steps (lack of information, as opposed to contradiction).
+  )
   
 ;;; Data structures
 
-(defstruct env "Contains an alist mapping each subject to the statements they are a subject of." alist)
+(defstruct env "Contains alists mapping each subject/predicate to the statements they are a subject/predicate of." 
+  subs preds)
 
 (defstruct (stmt (:type list)) 
   "A syllogistic statement that binds a subject to a predicate based on the given type (either A, E, I or O)." 
@@ -62,8 +74,36 @@
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
-(defun add-stmt (stmt &optional (env *toplevel-env*) &aux assoc)
+(defmacro alist-push (key val alist &rest options)
+  "Add key-value pair to alist."
+  (let ((key-var (gensym "KEY"))
+        (val-var (gensym "VAL"))
+        (assoc-var (gensym "ASSOC")))
+    `(let* ((,key-var ,key)
+            (,val-var ,val)
+            (,assoc-var (assoc ,key-var ,alist .,options)))
+       (if ,assoc-var
+           (push ,val-var (cdr ,assoc-var))
+           (push (list ,key-var ,val-var) ,alist))
+       ,alist)))
+
+(defun add-stmt (stmt &optional (env *toplevel-env*))
   "Add statement to environment."
-  (if (setf assoc (assoc (stmt-sub stmt) (env-alist env)))
-      (push (cdr stmt) (cdr assoc))
-      (push (list (car stmt) (cdr stmt)) (env-alist env))))
+  (alist-push (stmt-sub stmt) stmt (env-subs env))
+  (alist-push (stmt-pred stmt) stmt (env-preds env)))
+
+(defun known-p (stmt &optional (env *toplevel-env*))
+  "Return T if statement is already known in environment."
+  (member (cdr stmt) (assoc (car stmt) (env-subs env)) :test #'equal))
+
+(defun sub-minor-premise (figure sub type mid)
+  "Construct new minor premise from the given subject, type and middle category based on the given figure."
+  (if (< figure 3)
+      (list sub type mid)
+      (list mid type sub)))
+
+(defun pred-premise-alist (figure &optional (env *toplevel-env*))
+  "Return the alist in which to search for a premise containing a given predicate based on the given figure."
+  (if (evenp figure)
+      (env-subs env)
+      (env-preds env)))
