@@ -42,19 +42,52 @@
 
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
-  ;; Consider the statements with the same subject as stmt.
-  ;; If another statement subsumes stmt, consider it trivially proven with steps containing that statement.
-  ;; If another statement contradicts stmt, consider it disproven with steps containing the contradictory statement.
-  ;; Otherwise, go through each inference rule that can conclude with (stmt-type stmt).
-  ;; Find a major premise (a premise containing the predicate) that can derive the statement with the type given by the rule.
-  ;; If no such premise exists, jump to the next inference rule.
-  ;; Otherwise, go through each viable premise.
-  ;; Construct the required minor premise from the subject and the middle category and try to prove it.
-  ;; If it is disproven, go to the next premise.
-  ;; If it is proven, return the same proof structure with the major premise added to the front of the steps.
-  ;; If no premises are left, jump to the next inference rule.
-  ;; If no inference rules are left, return negative proof with no steps (lack of information, as opposed to contradiction).
-  )
+  (let ((pred-stmts (cdr (assoc (stmt-pred stmt) (env-preds env))))
+        (rules      (cdr (assoc (stmt-type stmt) inference-rules))) 
+        other)
+    (cond ((or (null pred-stmts)
+               (null (cdr (assoc (stmt-sub stmt) (env-subs env)))))
+           ;; No information about the subject or the predicate, return disproof
+           (make-proof))
+          ((setf other 
+             (some (lambda (s) (subsumes-p s stmt)) 
+                   pred-stmts))
+           ;; Another statement subsumes stmt, return proof
+           (make-proof :affirmative-p T :steps (list other stmt)))
+          ((setf other 
+             (some (lambda (s) (contradicts-p s stmt)) 
+                   pred-stmts))
+           ;; Another statement contradicts stmt, return disproof
+           (make-proof :steps (list other)))
+          (T
+           ;; Go through each inference rule that can derive a statement of type (stmt-type stmt)
+           ;;   and the different viable major premises for the given inference rule
+           (do* ((rules (cons NIL rules))
+                 rule middle stmts) ;defined and redefined after check
+                ((null (cdr rules))
+                 (make-proof)) ;no rules can deduce stmt, return disproof
+                (cond ((null stmts) 
+                       ;; No premises left, try next inference rule
+                       (setf rules  (cdr rules)
+                             rule   (car rules)
+                             middle (middle-category (third rule))
+                             stmts  (remove (first rule)
+                                      (major-premises (third rule) (stmt-pred stmt) env)
+                                      :key #'stmt-type :test-not #'eq)))
+                      (T
+                       ;; Try first major premise in stmts
+                       (setf other (prove (minor-premise 
+                                            (third rule) 
+                                            (stmt-sub stmt) 
+                                            (second rule) 
+                                            (funcall middle (car stmts)))
+                                          env))
+                       ;; Try to prove the corresponding minor premise
+                       (when (affirmative-p other)
+                         (push (car stmts) (proof-steps other))
+                         (return-from NIL other)) ;append major premise to proof of minor premise and return proof
+                       ;; Go to next major premise
+                       (pop stmts))))))))
 
 (defun contradicts-p (stmt1 stmt2)
   "Return T if STMT1 refutes STMT2."
@@ -67,6 +100,24 @@
   (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
        (eq (stmt-pred stmt1) (stmt-pred stmt2))
        (member (stmt-type stmt2) (assoc (stmt-type stmt1) subsumptions))))
+
+(defun minor-premise (figure sub type mid)
+  "Construct new minor premise from the given subject, type and middle category based on the given figure."
+  (if (< figure 3)
+      (list sub type mid)
+      (list mid type sub)))
+
+(defun major-premises (figure pred &optional (env *toplevel-env*))
+  "Return a list of major premises containing PRED based on FIGURE."
+  (if (evenp figure)
+      (cdr (assoc pred (env-subs env)))
+      (cdr (assoc pred (env-preds env)))))
+
+(defun middle-category (figure)
+  "Return accessor function to the middle category of a major premise based on the given figure."
+  (if (evenp figure)
+      #'stmt-pred
+      #'stmt-sub))
   
 ;;; Data structures
 
@@ -116,15 +167,3 @@
 (defun known-p (stmt &optional (env *toplevel-env*))
   "Return T if statement is already known in environment."
   (member (cdr stmt) (assoc (car stmt) (env-subs env)) :test #'equal))
-
-(defun sub-minor-premise (figure sub type mid)
-  "Construct new minor premise from the given subject, type and middle category based on the given figure."
-  (if (< figure 3)
-      (list sub type mid)
-      (list mid type sub)))
-
-(defun pred-premise-alist (figure &optional (env *toplevel-env*))
-  "Return the alist in which to search for a premise containing a given predicate based on the given figure."
-  (if (evenp figure)
-      (env-subs env)
-      (env-preds env)))
