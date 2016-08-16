@@ -50,13 +50,11 @@
            ;; No information about the subject or the predicate, return disproof
            (make-proof))
           ((setf other 
-             (some (lambda (s) (subsumes-p s stmt)) 
-                   pred-stmts))
+             (find stmt pred-stmts :test #'subsumes-p))
            ;; Another statement subsumes stmt, return proof
-           (make-proof :affirmative-p T :steps (list other stmt)))
+           (make-proof :affirmative-p T :steps (list other)))
           ((setf other 
-             (some (lambda (s) (contradicts-p s stmt)) 
-                   pred-stmts))
+             (find stmt pred-stmts :test #'contradicts-p))
            ;; Another statement contradicts stmt, return disproof
            (make-proof :steps (list other)))
           (T
@@ -64,7 +62,7 @@
            ;;   and the different viable major premises for the given inference rule
            (do* ((rules (cons NIL rules))
                  rule middle stmts) ;defined and redefined after check
-                ((null (cdr rules))
+                ((and (null (cdr rules)) (null stmts))
                  (make-proof)) ;no rules can deduce stmt, return disproof
                 (cond ((null stmts) 
                        ;; No premises left, try next inference rule
@@ -83,23 +81,23 @@
                                             (funcall middle (car stmts)))
                                           env))
                        ;; Try to prove the corresponding minor premise
-                       (when (affirmative-p other)
+                       (when (proof-affirmative-p other)
                          (push (car stmts) (proof-steps other))
-                         (return-from NIL other)) ;append major premise to proof of minor premise and return proof
+                         (return other)) ;append major premise to proof of minor premise and return proof
                        ;; Go to next major premise
                        (pop stmts))))))))
 
 (defun contradicts-p (stmt1 stmt2)
-  "Return T if STMT1 refutes STMT2."
+  "Return T if STMT2 refutes STMT1."
   (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
        (eq (stmt-pred stmt1) (stmt-pred stmt2))
-       (member (stmt-type stmt2) (assoc (stmt-type stmt1) contradictions))))
+       (member (stmt-type stmt1) (assoc (stmt-type stmt2) contradictions))))
 
 (defun subsumes-p (stmt1 stmt2)
-  "Return T if STMT1 subsumes STMT2."
+  "Return T if STMT2 subsumes STMT1."
   (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
        (eq (stmt-pred stmt1) (stmt-pred stmt2))
-       (member (stmt-type stmt2) (assoc (stmt-type stmt1) subsumptions))))
+       (member (stmt-type stmt1) (assoc (stmt-type stmt2) subsumptions))))
 
 (defun minor-premise (figure sub type mid)
   "Construct new minor premise from the given subject, type and middle category based on the given figure."
@@ -162,7 +160,8 @@
 (defun add-stmt (stmt &optional (env *toplevel-env*))
   "Add statement to environment."
   (alist-push (stmt-sub stmt) stmt (env-subs env))
-  (alist-push (stmt-pred stmt) stmt (env-preds env)))
+  (alist-push (stmt-pred stmt) stmt (env-preds env))
+  NIL)
 
 (defun known-p (stmt &optional (env *toplevel-env*))
   "Return T if statement is already known in environment."
