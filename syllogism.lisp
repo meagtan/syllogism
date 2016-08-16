@@ -42,8 +42,9 @@
 
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
-  ;; If the statement is a known fact, consider it trivially proven with steps (list stmt).
-  ;; If the statement contradicts another statement, consider it disproven with steps containing the contradictory statement.
+  ;; Consider the statements with the same subject as stmt.
+  ;; If another statement subsumes stmt, consider it trivially proven with steps containing that statement.
+  ;; If another statement contradicts stmt, consider it disproven with steps containing the contradictory statement.
   ;; Otherwise, go through each inference rule that can conclude with (stmt-type stmt).
   ;; Find a major premise (a premise containing the predicate) that can derive the statement with the type given by the rule.
   ;; If no such premise exists, jump to the next inference rule.
@@ -53,7 +54,20 @@
   ;; If it is proven, return the same proof structure with this inference added to the front of the steps.
   ;; If no premises are left, jump to the next inference rule.
   ;; If no inference rules are left, return negative proof with no steps (lack of information, as opposed to contradiction).
+  ;; If all searched premises are disproven, signify contradiction, else lack of knowledge.
   )
+
+(defun contradicts-p (stmt1 stmt2)
+  "Return T if STMT1 refutes STMT2."
+  (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
+       (eq (stmt-pred stmt1) (stmt-pred stmt2))
+       (member (stmt-type stmt2) (assoc (stmt-type stmt1) contradictions))))
+
+(defun subsumes-p (stmt1 stmt2)
+  "Return T if STMT1 subsumes STMT2."
+  (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
+       (eq (stmt-pred stmt1) (stmt-pred stmt2))
+       (member (stmt-type stmt2) (assoc (stmt-type stmt1) subsumptions))))
   
 ;;; Data structures
 
@@ -71,6 +85,14 @@
     (O (E A 1) (E I 1) (A E 2) (E A 2) (A O 2) (E I 2)
        (E A 3) (O A 3) (E I 3) (A E 4) (E A 4) (E I 4)))
   "Maps types of conclusions to the different combinations of major and minor premise types and figures that prove it.")
+
+(defconstant contradictions
+  '((A E O) (E A I) (I E) (O A))
+  "Maps each type to the types they contradict.")
+
+(defconstant subsumptions
+  '((A A I) (E E O) (I I) (O O))
+  "Maps each type to the types they subsume.")
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
