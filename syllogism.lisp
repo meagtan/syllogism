@@ -15,10 +15,10 @@
            (princ "\nok"))
           ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
            (format t "~%Yes.~{~^~%~S~} q.e.d."
-             (mapcar #'output-fact (reverse (proof-steps proof)))))
+             (mapcar #'output-fact (proof-steps proof))))
           ((proof-steps proof)
            (format t "~%No.~{~^~%~S~} which contradicts the query."
-             (mapcar #'output-inference (reverse (proof-steps proof)))))
+             (mapcar #'output-inference (proof-steps proof))))
           (T (princ "\nToo few information."))))
   (syllogism-repl env))
   
@@ -37,7 +37,7 @@
 ;;; Core model
 
 (defstruct proof 
-  "Stores whether the truth is affirmative or negative, and a list of inferences taken at each step of the proof or refutal."
+  "Stores whether the truth is affirmative or negative, and a list of steps describing a polysyllogism."
   affirmative-p steps)
 
 (defun prove (stmt &optional (env *toplevel-env*))
@@ -51,10 +51,9 @@
   ;; Otherwise, go through each viable premise.
   ;; Construct the required minor premise from the subject and the middle category and try to prove it.
   ;; If it is disproven, go to the next premise.
-  ;; If it is proven, return the same proof structure with this inference added to the front of the steps.
+  ;; If it is proven, return the same proof structure with the major premise added to the front of the steps.
   ;; If no premises are left, jump to the next inference rule.
   ;; If no inference rules are left, return negative proof with no steps (lack of information, as opposed to contradiction).
-  ;; If all searched premises are disproven, signify contradiction, else lack of knowledge.
   )
 
 (defun contradicts-p (stmt1 stmt2)
