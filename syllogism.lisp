@@ -105,7 +105,7 @@
                     middle (middle-category (third rule))
                     stmts  (remove (first rule)
                              (major-premises (third rule) (stmt-pred stmt) env)
-                             :key #'stmt-type :test-not #'eq)))
+                             :key #'stmt-type :test-not #'equal)))
              (T
               ;; Try first major premise in stmts
               (setf proof (prove (minor-premise 
