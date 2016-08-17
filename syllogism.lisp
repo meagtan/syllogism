@@ -36,9 +36,8 @@
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
-;;; Front end
+;;; Main program
 
-;; The main program
 (defun syllogism-repl (&optional (env *toplevel-env*))
   "Run REPL for the syllogism solver."
   (princ "\n\n==> ")
@@ -69,7 +68,7 @@
   "Convert inference into a string to be printed."
   NIL)
   
-;;; Core model
+;;; Core proof algorithm
 
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
@@ -92,8 +91,7 @@
           (T (search-inferences stmt rules env)))))
 
 (defun search-inferences (stmt rules &optional (env *toplevel-env*) &aux proof)
-  ;; Go through each inference rule that can derive a statement of type (stmt-type stmt)
-  ;;   and the different viable major premises for the given inference rule
+  "Look for an inference that can derive the given statement from the given inference rules."
   (do* ((rules (cons NIL rules))
         rule middle stmts) ;defined and redefined after check
        ((and (null (cdr rules)) (null stmts))
@@ -122,6 +120,8 @@
                 (return proof)) ;append major premise to proof of minor premise and return proof
               ;; Go to next major premise
               (pop stmts))))
+              
+;;; Auxiliary functions
 
 (defun contradicts-p (stmt1 stmt2)
   "Return T if STMT2 refutes STMT1."
@@ -152,8 +152,6 @@
   (if (evenp figure)
       #'stmt-pred
       #'stmt-sub))
-  
-;;; Data structures
 
 (defun add-stmt (stmt &optional (env *toplevel-env*))
   "Add statement to environment."
