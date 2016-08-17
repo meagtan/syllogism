@@ -73,11 +73,11 @@
 
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
-  (let ((pred-stmts (cdr (assoc (stmt-pred stmt) (env-preds env))))
+  (let ((pred-stmts (cdr (assoc (stmt-pred stmt) (env-preds env) :test #'equal)))
         (rules      (cdr (assoc (stmt-type stmt) inference-rules))) 
         other)
     (cond ((or (null pred-stmts)
-               (null (cdr (assoc (stmt-sub stmt) (env-subs env)))))
+               (null (cdr (assoc (stmt-sub stmt) (env-subs env) :test #'equal))))
            ;; No information about the subject or the predicate, return disproof
            (make-proof))
           ((setf other 
@@ -125,14 +125,14 @@
 
 (defun contradicts-p (stmt1 stmt2)
   "Return T if STMT2 refutes STMT1."
-  (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
-       (eq (stmt-pred stmt1) (stmt-pred stmt2))
+  (and (equal (stmt-sub stmt1) (stmt-sub stmt2))
+       (equal (stmt-pred stmt1) (stmt-pred stmt2))
        (member (stmt-type stmt1) (assoc (stmt-type stmt2) contradictions))))
 
 (defun subsumes-p (stmt1 stmt2)
   "Return T if STMT2 subsumes STMT1."
-  (and (eq (stmt-sub stmt1) (stmt-sub stmt2))
-       (eq (stmt-pred stmt1) (stmt-pred stmt2))
+  (and (equal (stmt-sub stmt1) (stmt-sub stmt2))
+       (equal (stmt-pred stmt1) (stmt-pred stmt2))
        (member (stmt-type stmt1) (assoc (stmt-type stmt2) subsumptions))))
 
 (defun minor-premise (figure sub type mid)
@@ -144,8 +144,8 @@
 (defun major-premises (figure pred &optional (env *toplevel-env*))
   "Return a list of major premises containing PRED based on FIGURE."
   (if (evenp figure)
-      (cdr (assoc pred (env-subs env)))
-      (cdr (assoc pred (env-preds env)))))
+      (cdr (assoc pred (env-subs env) :test #'equal))
+      (cdr (assoc pred (env-preds env) :test #'equal))))
 
 (defun middle-category (figure)
   "Return accessor function to the middle category of a major premise based on the given figure."
@@ -157,13 +157,13 @@
 
 (defun add-stmt (stmt &optional (env *toplevel-env*))
   "Add statement to environment."
-  (alist-push (stmt-sub stmt) stmt (env-subs env))
-  (alist-push (stmt-pred stmt) stmt (env-preds env))
+  (alist-push (stmt-sub stmt) stmt (env-subs env) :test #'equal)
+  (alist-push (stmt-pred stmt) stmt (env-preds env) :test #'equal)
   stmt)
 
 (defun known-p (stmt &optional (env *toplevel-env*))
   "Return T if statement is already known in environment."
-  (member (cdr stmt) (assoc (car stmt) (env-subs env)) :test #'equal))
+  (member (cdr stmt) (assoc (car stmt) (env-subs env) :test #'equal) :test #'equal))
 
 (defmacro alist-push (key val alist &rest options)
   "Add key-value pair to alist."
