@@ -90,10 +90,10 @@
            (make-proof :steps (list other)))
           (T (search-inferences stmt rules env)))))
 
-(defun search-inferences (stmt rules &optional (env *toplevel-env*) &aux proof)
+(defun search-inferences (stmt rules &optional (env *toplevel-env*))
   "Look for an inference that can derive the given statement from the given inference rules."
   (do* ((rules (cons NIL rules))
-        rule middle stmts) ;defined and redefined after check
+        rule middle stmts proof) ;defined and redefined after check
        ((and (null (cdr rules)) (null stmts))
         (make-proof)) ;no rules can deduce stmt, return disproof
        (cond ((null stmts) 
@@ -105,19 +105,17 @@
                              (major-premises (third rule) (stmt-pred stmt) env)
                              :key #'stmt-type :test-not #'equal)))
              (T
-              ;; Try first major premise in stmts
-              (setf proof (prove (minor-premise 
-                                   (third rule) 
-                                   (stmt-sub stmt) 
-                                   (second rule) 
-                                   (funcall middle (car stmts)))
-                                 env))
-              ;; Try to prove the corresponding minor premise
+              ;; Try to prove the corresponding minor premise to the first major premise in stmts
+              (setf proof 
+                (prove (minor-premise 
+                         (third rule) (stmt-sub stmt) (second rule) (funcall middle (car stmts)))
+                       env))
               (when (proof-affirmative-p proof)
+                ;; Add the major premise and stmt to the proof and return it
                 (add-stmt stmt env) ;consider stmt proven
                 (push (car stmts) (proof-steps proof))
-                (rplacd (last (proof-steps proof)) stmt) ;affix stmt to end of proof
-                (return proof)) ;append major premise to proof of minor premise and return proof
+                (rplacd (last (proof-steps proof)) stmt)
+                (return proof))
               ;; Go to next major premise
               (pop stmts))))
               
