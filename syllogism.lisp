@@ -117,7 +117,7 @@
                 (rplacd (last (proof-steps proof)) stmt)
                 (return proof))
               ;; Go to next major premise
-              (pop stmts))))
+              (pop stmts)))))
               
 ;;; Auxiliary functions
 
