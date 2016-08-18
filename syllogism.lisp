@@ -114,7 +114,7 @@
                 ;; Add the major premise and stmt to the proof and return it
                 (add-stmt stmt env) ;consider stmt proven
                 (push (car stmts) (proof-steps proof))
-                (rplacd (last (proof-steps proof)) stmt)
+                (rplacd (last (proof-steps proof)) (list stmt))
                 (return proof))
               ;; Go to next major premise
               (pop stmts)))))
