@@ -18,9 +18,20 @@
 
 (defstruct cat
   "Encodes the textual representation of a category."
-  subject-p name)
+  category-p name)
 
 ;;; Globals
+
+(defconstant punctuation 
+  ",.;:!?`'\""
+  "String of punctuation to be ignored by the parser.")
+
+(defconstant type-words
+  '((A (T "All"))
+    (E (T "No") (NIL NIL "not"))
+    (I (T "Some"))
+    (O (T "Some" "not") (NIL NIL "not")))
+  "Maps types of statements to their textual representation, based on whether the subject is an individual or a category.")
 
 (defconstant inference-rules
   '((A (A A 1))
@@ -37,10 +48,6 @@
 (defconstant subsumptions
   '((A A I) (E E O) (I I) (O O))
   "Maps each type to the types they subsume.")
-
-(defconstant punctuation 
-  ",.;:!?`'\""
-  "String of punctuation to be ignored by the parser.")
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
@@ -71,18 +78,22 @@
 (defun parse-input (str)
   "Parse a statement inputted to the syllogism solver."
   (let ((input (read-from-string 
-                 (concatenate 'string "(" 
-                                      (substitute #\Space punctuation (read-line) 
-                                        :test (lambda (seq item) (find item seq)))
-                                      ")"))))
+                 (format NIL "(~S)" (substitute #\Space punctuation (read-line) 
+                                      :test (lambda (seq item) (find item seq)))))))
     ;; match input to patterns ([every | no | some] <subject> <copula> {not} <predicate>)
     ;; if such a match is possible, create new assertion with inferred subject, type and predicate
+    ;; include the copula in the name of the predicate, for ease of output
     ;; for queries, if the copula is in the beginning it might be difficult to discern the subject from the predicate
   ))
   
-(defun output-inference (inf)
-  "Convert inference into a string to be printed."
-  NIL)
+(defun output-statement (stmt &aux (alist (assoc (category-p (stmt-sub stmt)) 
+                                            (cdr (assoc (stmt-type stmt) type-words)))))
+  "Convert statement into a string to be printed."
+  (format NIL "~@[~s ~]~s is ~@[~s ~]~s."
+    (second alist)
+    (cat-name (stmt-sub stmt))
+    (third alist)
+    (cat-name (stmt-pred stmt))))
   
 ;;; Core proof algorithm
 
