@@ -16,6 +16,10 @@
   "A syllogistic statement that binds a subject to a predicate based on the given type (either A, E, I or O)." 
   sub type pred)
 
+(defstruct cat
+  "Encodes the textual representation of a category."
+  subject-p name)
+
 ;;; Globals
 
 (defconstant inference-rules
@@ -33,6 +37,10 @@
 (defconstant subsumptions
   '((A A I) (E E O) (I I) (O O))
   "Maps each type to the types they subsume.")
+
+(defconstant punctuation 
+  ",.;:!?`'\""
+  "String of punctuation to be ignored by the parser.")
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
@@ -62,7 +70,15 @@
 ;; returns either an assertion or a query, and NIL for invalid input
 (defun parse-input (str)
   "Parse a statement inputted to the syllogism solver."
-  NIL)
+  (let ((input (read-from-string 
+                 (concatenate 'string "(" 
+                                      (substitute #\Space punctuation (read-line) 
+                                        :test (lambda (seq item) (find item seq)))
+                                      ")"))))
+    ;; match input to patterns ([every | no | some] <subject> <copula> {not} <predicate>)
+    ;; if such a match is possible, create new assertion with inferred subject, type and predicate
+    ;; for queries, if the copula is in the beginning it might be difficult to discern the subject from the predicate
+  ))
   
 (defun output-inference (inf)
   "Convert inference into a string to be printed."
