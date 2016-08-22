@@ -86,8 +86,6 @@
                (mapcar #'output-stmt (proof-steps proof))))
             (T (princ "\nToo few information."))))))
   
-;; TODO
-  
 ;; returns either an assertion or a query, and NIL for invalid input
 (defun parse-input (str)
   "Parse a statement inputted to the syllogism solver."
@@ -132,7 +130,7 @@
     (first (third alist))
     (cat-name (stmt-pred stmt))))
   
-;;; Core proof algorithm
+;;; Core prover
 
 ;; TODO convert this to iteration and find shortest path
 (defun prove (stmt &optional (env *toplevel-env*))
@@ -184,7 +182,17 @@
               ;; Go to next major premise
               (pop stmts)))))
               
-;;; Auxiliary functions
+;;; Interface for data structures
+
+(defun add-stmt (stmt &optional (env *toplevel-env*))
+  "Add statement to environment."
+  (alist-push (stmt-sub stmt) stmt (env-subs env) :test #'equal)
+  (alist-push (stmt-pred stmt) stmt (env-preds env) :test #'equal)
+  stmt)
+
+(defun known-p (stmt &optional (env *toplevel-env*))
+  "Return T if statement is already known in environment."
+  (member (cdr stmt) (assoc (car stmt) (env-subs env) :test #'equal) :test #'equal))
 
 (defun contradicts-p (stmt1 stmt2)
   "Return T if STMT2 refutes STMT1."
@@ -215,16 +223,8 @@
   (if (evenp figure)
       #'stmt-pred
       #'stmt-sub))
-
-(defun add-stmt (stmt &optional (env *toplevel-env*))
-  "Add statement to environment."
-  (alist-push (stmt-sub stmt) stmt (env-subs env) :test #'equal)
-  (alist-push (stmt-pred stmt) stmt (env-preds env) :test #'equal)
-  stmt)
-
-(defun known-p (stmt &optional (env *toplevel-env*))
-  "Return T if statement is already known in environment."
-  (member (cdr stmt) (assoc (car stmt) (env-subs env) :test #'equal) :test #'equal))
+  
+;;; Helper functions
 
 (defmacro alist-push (key val alist &rest options)
   "Add key-value pair to alist."
