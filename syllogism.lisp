@@ -1,5 +1,14 @@
 ;;;; Syllogism solver
 
+;; SYLLOGISM-REPL is the main function to be executed by the program.
+;; It will run a small interpreter that accepts three types of sentences:
+;; - Assertions, which are statements of the form [Every|All|Some] X [is|are] {not} Y.
+;;   The program will add them as axioms into the state of the program.
+;; - Queries, which are assertions preceded by "Is it true that".
+;;   The program will try to prove them and print a proof if possible.
+;; - A sentence composed only of the word quit, in which case the program will quit and return its state.
+;; Conditional assertions and proofs may also be added in the future, by extending the environment with hypotheticals.
+
 ;;; Structs
 
 (defstruct assertion "Wrapper struct for an assertion command." stmt)
@@ -18,7 +27,7 @@
 
 (defstruct cat
   "Encodes the textual representation of a category."
-  category-p name)
+  name category-p)
 
 ;;; Globals
 
@@ -27,11 +36,11 @@
   "String of punctuation to be ignored by the parser.")
 
 (defconstant type-words
-  '((A (T "All"))
-    (E (T "No") (NIL NIL "not"))
-    (I (T "Some"))
-    (O (T "Some" "not") (NIL NIL "not")))
-  "Maps types of statements to their textual representation, based on whether the subject is an individual or a category.")
+  '((A (T (all every)))
+    (E (T (no)) (NIL NIL (not)))
+    (I (T (some)))
+    (O (T (some) (not)) (NIL NIL (not))))
+  "Maps types of statements to their textual representation, based on whether the subject is a category or an individual.")
 
 (defconstant inference-rules
   '((A (A A 1))
@@ -51,26 +60,26 @@
 
 (defparameter *toplevel-env* (make-env) "Default environment for statements.")
 
-;;; Main program
+;;; Main interface
 
 (defun syllogism-repl (&optional (env *toplevel-env*))
   "Run REPL for the syllogism solver."
-  (princ "\n\n==> ")
-  (let ((input (parse-input (read-line))) proof)
-    ;; TODO include an option to quit
-    (cond ((null input)
-           (princ "\nError: invalid input."))
-          ((assertion-p input)
-           (add-stmt (assertion-stmt input) env)
-           (princ "\nok"))
-          ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
-           (format t "~%Yes.~{~^~%~S~} q.e.d."
-             (mapcar #'output-fact (proof-steps proof))))
-          ((proof-steps proof)
-           (format t "~%No.~{~^~%~S~} which contradicts the query."
-             (mapcar #'output-inference (proof-steps proof))))
-          (T (princ "\nToo few information."))))
-  (syllogism-repl env))
+  (loop
+    (princ "\n\n==> ")
+    (let ((input (parse-input (read-line))) proof)
+      (cond ((null input)
+             (princ "\nError: invalid input."))
+            ((eq input 'quit) (return env))
+            ((assertion-p input)
+             (add-stmt (assertion-stmt input) env)
+             (princ "\nok"))
+            ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
+             (format t "~%Yes.~{~^~%~S~} q.e.d."
+               (mapcar #'output-fact (proof-steps proof))))
+            ((proof-steps proof)
+             (format t "~%No.~{~^~%~S~} which contradicts the query."
+               (mapcar #'output-inference (proof-steps proof))))
+            (T (princ "\nToo few information."))))))
   
 ;; TODO
   
