@@ -6,7 +6,7 @@
 ;;   The program will add them as axioms into the state of the program.
 ;; - Queries, which are assertions preceded by "Is it true that".
 ;;   The program will try to prove them and print a proof if possible.
-;; - A sentence composed only of the word quit, in which case the program will quit and return its state.
+;; - A sentence starting with the word quit, in which case the program will quit and return its state.
 ;; Conditional assertions and proofs may also be added in the future, by extending the environment with hypotheticals.
 
 ;;; Structs
@@ -25,6 +25,7 @@
   "A syllogistic statement that binds a subject to a predicate based on the given type (either A, E, I or O)." 
   sub type pred)
 
+;; this might be memoized, or compared by name
 (defstruct cat
   "Encodes the textual representation of a category."
   name category-p)
@@ -35,10 +36,14 @@
   ",.;:!?`'\""
   "String of punctuation to be ignored by the parser.")
 
+(defconstant copulas
+  '(is are)
+  "Copulas separating a subject from a predicate.")
+
 (defconstant type-words
-  '((A (T (all every)))
+  '((A (T (all every)) (NIL))
     (E (T (no)) (NIL NIL (not)))
-    (I (T (some)))
+    (I (T (some)) (NIL))
     (O (T (some) (not)) (NIL NIL (not))))
   "Maps types of statements to their textual representation, based on whether the subject is a category or an individual.")
 
@@ -75,10 +80,10 @@
              (princ "\nok"))
             ((proof-affirmative-p (setf proof (prove (query-stmt input) env)))
              (format t "~%Yes.~{~^~%~S~} q.e.d."
-               (mapcar #'output-fact (proof-steps proof))))
+               (mapcar #'output-stmt (proof-steps proof))))
             ((proof-steps proof)
              (format t "~%No.~{~^~%~S~} which contradicts the query."
-               (mapcar #'output-inference (proof-steps proof))))
+               (mapcar #'output-stmt (proof-steps proof))))
             (T (princ "\nToo few information."))))))
   
 ;; TODO
@@ -88,24 +93,48 @@
   "Parse a statement inputted to the syllogism solver."
   (let ((input (read-from-string 
                  (format NIL "(~S)" (substitute #\Space punctuation (read-line) 
-                                      :test (lambda (seq item) (find item seq)))))))
-    ;; match input to patterns ([every | no | some] <subject> <copula> {not} <predicate>)
-    ;; if such a match is possible, create new assertion with inferred subject, type and predicate
-    ;; include the copula in the name of the predicate, for ease of output
-    ;; for queries, if the copula is in the beginning it might be difficult to discern the subject from the predicate
-  ))
+                                      :test (flip #'find))))))
+    (cond ((eq (car input) 'quit) 'quit)
+          ((= (search '(is it true that) input) 0)
+           (parse-stmt (subseq input 4) T))
+          (T (parse-stmt input)))))
+
+(defun parse-stmt (stmt &optional query-p &aux (constr (if query-p #'make-query #'make-assertion)))
+  "Parse list of symbols into a statement."
+  (let ((split (position copulas stmt :test (flip #'find)))) ;find position of copula in statement
+    (and split (< 0 split (1- (length stmt)))
+      (loop with sub  = (subseq stmt 0 split)
+            with pred = (subseq stmt (1+ split))
+            for (type . word-lists) in type-words do
+            (loop with sub-cdr with pred-cdr
+                  for (category-p . words) in word-lists
+                  ;; check if words match the subject and the predicate
+                  if (or (null (first words))
+                         (and (member (first sub) (first words))
+                              (setf sub-cdr T)))
+                  if (or (null (second words))
+                         (and (member (first pred) (second words))
+                              (setf pred-cdr T)))
+                  do (return-from PARSE-STMT
+                       (funcall constr :stmt
+                         (make-stmt
+                           :sub (make-cat :name (if sub-cdr (cdr sub) sub)
+                                          :category-p category-p)
+                           :type type
+                           :pred (make-cat :name (if pred-cdr (cdr pred) pred))))))))))
   
-(defun output-statement (stmt &aux (alist (assoc (category-p (stmt-sub stmt)) 
+(defun output-stmt (stmt &aux (alist (assoc (category-p (stmt-sub stmt)) 
                                             (cdr (assoc (stmt-type stmt) type-words)))))
   "Convert statement into a string to be printed."
   (format NIL "~@[~s ~]~s is ~@[~s ~]~s."
-    (second alist)
+    (first (second alist))
     (cat-name (stmt-sub stmt))
-    (third alist)
+    (first (third alist))
     (cat-name (stmt-pred stmt))))
   
 ;;; Core proof algorithm
 
+;; TODO convert this to iteration and find shortest path
 (defun prove (stmt &optional (env *toplevel-env*))
   "Return a proof of the given statement using facts in ENV, if one exists; returns NIL otherwise."
   (let ((pred-stmts (cdr (assoc (stmt-pred stmt) (env-preds env) :test #'equal)))
@@ -209,3 +238,7 @@
            (pushnew ,val-var (cdr ,assoc-var))
            (push (list ,key-var ,val-var) ,alist))
        ,alist)))
+
+(defun flip (func &rest args)
+  "Flip the first two arguments of FUNC."
+  (lambda (b a) (apply func a b args)))
