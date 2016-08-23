@@ -7,6 +7,7 @@
 ;; - Queries, which are assertions preceded by "Is it true that".
 ;;   The program will try to prove them and print a proof if possible.
 ;; - A sentence starting with the word quit, in which case the program will quit and return its state.
+;; - A sentence starting with the word reset, in which case the program will reset the state of the program.
 ;; Conditional assertions and proofs may also be added in the future, by extending the environment with hypotheticals.
 
 ;;; Structs
@@ -75,6 +76,7 @@
       (cond ((null input)
              (princ "\nError: invalid input."))
             ((eq input 'quit) (return env))
+            ((eq input 'reset) (setf env (make-env)))
             ((assertion-p input)
              (add-stmt (assertion-stmt input) env)
              (princ "\nok"))
@@ -92,7 +94,7 @@
   (let ((input (read-from-string 
                  (format NIL "(~S)" (substitute #\Space punctuation (read-line) 
                                       :test (flip #'find))))))
-    (cond ((eq (car input) 'quit) 'quit)
+    (cond ((member (car input) '(quit reset)) (car input))
           ((= (search '(is it true that) input) 0)
            (parse-stmt (subseq input 4) T))
           (T (parse-stmt input)))))
