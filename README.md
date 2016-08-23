@@ -23,3 +23,11 @@ Example:
 > Therefore, Socrates is mortal (conclusion)
 
 This is a special case of the AAA-1 (every statement is an A, and the figure is 1) rule of inference, referred to as B**a**rb**a**r**a**.
+
+## Usage
+
+To run the program, load the file `syllogism.lisp` in an interactive Lisp environment and call the function `(syllogism-repl)`. The function will present a command line environment that accepts three types of sentences:
+- Assertions, which are statements of the form [Every|All|Some] X [is|are] {not} Y. The program will add them as axioms into the state of the program.
+- Queries, which are assertions preceded by "Is it true that". The program will try to prove them and print a proof if possible.
+- A sentence starting with the word quit, in which case the program will quit and return its state.
+- A sentence starting with the word reset, in which case the program will reset the state of the program.
